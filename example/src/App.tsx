@@ -1,141 +1,171 @@
 import * as React from 'react';
-import { StyleSheet, View, Text, Button, FlatList, Alert } from 'react-native';
 import {
-  UsbSerialManager,
-  Device,
-  Parity,
-  OpenOptions,
-} from 'react-native-usbserialport-module-android';
+  Dimensions,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  type ListRenderItem,
+} from 'react-native';
+import { useDeviceUSBPort, type DeviceUSBType } from './hook/useDevice';
 
+const { fontScale, height, width } = Dimensions.get('window');
 export default function App() {
-  const [devices, setDevices] = React.useState<Device[]>([]);
-  const [selectedDevice, setSelectedDevice] = React.useState<Device | null>(
-    null
+  const {
+    deviceConnectedUSB,
+    devicesFound,
+    error,
+    multiscentUSB,
+    onConnectDevice,
+    onDisconnectDevice,
+    onScanAndListUsbDevices,
+    onSendCommand,
+    statusMessage,
+  } = useDeviceUSBPort();
+
+  const renderItem: ListRenderItem<DeviceUSBType> = ({ item, index }) => (
+    <View key={index} style={styles.card}>
+      <View style={styles.cardContent}>
+        <View style={styles.deviceDetails}>
+          <View>
+            <Text style={styles.deviceName}>{item.name}</Text>
+            <Text style={styles.deviceMac}>{item.deviceId}</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.connectButton}
+            onPress={() => {
+              if (deviceConnectedUSB) {
+                onDisconnectDevice();
+                return;
+              }
+              onConnectDevice(item);
+            }}
+          >
+            <Text style={styles.connectText}>
+              {deviceConnectedUSB ? 'Desconectar' : 'Conectar'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
   );
-  const [openPort, setOpenPort] = React.useState<any>(null);
-  const [receivedData, setReceivedData] = React.useState<string>('');
-
-  React.useEffect(() => {
-    // List USB devices on component mount
-    UsbSerialManager.list()
-      .then(setDevices)
-      .catch((error) => Alert.alert('Error', error.message));
-  }, []);
-
-  const handleOpenPort = async (device: Device) => {
-    try {
-      const hasPermission = await UsbSerialManager.tryRequestPermission(
-        device.deviceId
-      );
-      if (!hasPermission) {
-        Alert.alert('Permission denied');
-        return;
-      }
-
-      const options: OpenOptions = {
-        baudRate: 9600,
-        dataBits: 8,
-        stopBits: 1,
-        parity: Parity.None,
-      };
-
-      const port = await UsbSerialManager.open(device.deviceId, options);
-      setOpenPort(port);
-      setSelectedDevice(device);
-    } catch (error) {
-      Alert.alert('Error', error.message);
-    }
-  };
-
-  const handleClosePort = async () => {
-    if (openPort) {
-      await openPort.close();
-      setOpenPort(null);
-      setSelectedDevice(null);
-    }
-  };
-
-  const handleSendData = async (data: string) => {
-    if (openPort) {
-      try {
-        const hexStr = Buffer.from(data, 'utf-8').toString('hex');
-        await openPort.send(hexStr);
-      } catch (error) {
-        Alert.alert('Error', error.message);
-      }
-    }
-  };
-
-  const handleDataReceived = (event: any) => {
-    setReceivedData(event.data);
-  };
-
-  React.useEffect(() => {
-    if (openPort) {
-      const subscription = openPort.on(
-        'usbSerialPortDataReceived',
-        handleDataReceived
-      );
-      return () => {
-        subscription.remove();
-      };
-    }
-  }, [openPort]);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>USB Devices:</Text>
+      <Text style={styles.header}>Conexão usb</Text>
+      <TouchableOpacity
+        style={styles.commandButton}
+        onPress={onScanAndListUsbDevices}
+      >
+        <Text style={styles.text}>Procurar Dispositivos</Text>
+      </TouchableOpacity>
+
       <FlatList
-        data={devices}
-        keyExtractor={(item) => item.deviceId.toString()}
-        renderItem={({ item }) => (
-          <View style={styles.deviceItem}>
-            <Text>{item.deviceName}</Text>
-            <Button
-              title="Open Port"
-              onPress={() => handleOpenPort(item)}
-              disabled={selectedDevice !== null}
-            />
-          </View>
-        )}
+        data={devicesFound}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.productId.toString()}
+        style={styles.list}
+        ListEmptyComponent={<Text>Nenhum dispositivo encontrado</Text>}
       />
-      {selectedDevice && (
-        <View style={styles.portInfo}>
-          <Text>Opened Port on Device: {selectedDevice.deviceName}</Text>
-          <Button title="Close Port" onPress={handleClosePort} />
-          <Button
-            title="Send Data"
-            onPress={() => handleSendData('Hello, USB!')}
-          />
-          <Text>Received Data: {receivedData}</Text>
+      {deviceConnectedUSB && (
+        <View style={styles.connectedButtonsContainer}>
+          <TouchableOpacity
+            style={styles.commandButton}
+            onPress={() => onSendCommand('0')}
+          >
+            <Text style={styles.text}>Calibrar {multiscentUSB?.name}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.commandButton}
+            onPress={() => onSendCommand('3 5')}
+          >
+            <Text style={styles.text}>
+              Recarregar posição 5 {multiscentUSB?.name}
+            </Text>
+          </TouchableOpacity>
         </View>
       )}
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {statusMessage ? <Text style={styles.error}>{statusMessage}</Text> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    padding: 16,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  deviceItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ccc',
-  },
-  portInfo: {
-    marginTop: 16,
-    padding: 16,
-    backgroundColor: '#f9f9f9',
+    padding: 12,
+    backgroundColor: '#fff',
     borderRadius: 8,
+    margin: 16,
+  },
+  header: {
+    marginBottom: 16,
+    textAlign: 'center',
+    fontSize: 20,
+    textTransform: 'uppercase',
+  },
+  divider: {
+    marginVertical: 16,
+  },
+  list: {
+    marginVertical: 6,
+  },
+  card: {
+    margin: 16,
+    backgroundColor: '#fff',
+    elevation: 8,
+    padding: 16,
+    borderRadius: 8,
+  },
+  cardContent: {
+    flexDirection: 'row',
+  },
+  image: {
+    height: width * 0.2,
+    minWidth: '20%',
+  },
+  deviceDetails: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  deviceName: {
+    fontSize: fontScale * 25,
+    fontWeight: 'bold',
+  },
+  deviceMac: {
+    fontSize: fontScale * 20,
+    fontWeight: 'bold',
+  },
+  connectedButtonsContainer: {
+    margin: 8,
+  },
+  commandButton: {
+    marginTop: 5,
+  },
+  error: {
+    color: 'red',
+    marginTop: 16,
+  },
+  connectButton: {
+    width: '100%',
+    backgroundColor: '#1204d3',
+    height: height / 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  connectText: {
+    textTransform: 'uppercase',
+    fontSize: fontScale * 25,
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  text: {
+    textTransform: 'uppercase',
+    fontSize: fontScale * 20,
+    color: '#fff',
+    fontWeight: 'bold',
   },
 });
