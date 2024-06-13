@@ -7,7 +7,12 @@
         "android",
         "!android/build",
         "src/*.ts",
-        "src/*.tsx"
+        "src/*.tsx",
+        "example/package.json",
+        "example/android",
+        "!example/android/.gradle",
+        "!example/android/build",
+        "!example/android/app/build"
       ],
       "outputs": []
     },
