@@ -6,14 +6,19 @@ const LINKING_ERROR =
   '- You rebuilt the app after installing the package\n' +
   '- You are not using Expo managed workflow\n';
 
-export interface Device {
+export type DeviceType = {
   readonly deviceId: number;
   readonly vendorId: number;
   readonly productId: number;
-}
+  readonly manufacturerName: string;
+  readonly version: string;
+  readonly productName: string;
+  readonly name: string;
+  readonly deviceName: string;
+};
 
 interface UsbSerialportForAndroidAPI {
-  list(): Promise<Device[]>;
+  list(): Promise<DeviceType[]>;
   // return 1 if already has permission, 0 will request permission
   tryRequestPermission(deviceId: number): Promise<number>;
   hasPermission(deviceId: number): Promise<boolean>;

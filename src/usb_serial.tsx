@@ -104,7 +104,7 @@ export default class UsbSerial {
 
       listener(event);
     };
-
+    console.log('onReceived.resul: ', this.result);
     this.listeners.push(listenerProxy);
     const sub = this.eventEmitter.addListener(DataReceivedEvent, listenerProxy);
     this.subscriptions.push(sub);

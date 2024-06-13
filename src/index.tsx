@@ -1,9 +1,9 @@
 import { NativeEventEmitter, NativeModules, Platform } from 'react-native';
-import UsbSerialportForAndroid, { Device } from './native_module';
+import UsbSerialportForAndroid, { type DeviceType } from './native_module';
 import UsbSerial from './usb_serial';
 
-export { Device, UsbSerial };
-export { Listener, EventData } from './usb_serial';
+export type { DeviceType, UsbSerial };
+export type { Listener, EventData } from './usb_serial';
 
 const {
   CODE_DEVICE_NOT_FOND,
@@ -47,7 +47,7 @@ export enum Parity {
 }
 
 export interface Manager {
-  list(): Promise<Device[]>;
+  list(): Promise<DeviceType[]>;
   /**
    * Return true if already has permission, otherwise will request permission and return false.
    *
@@ -82,7 +82,7 @@ export interface Manager {
 }
 
 const defaultManager: Manager = {
-  list(): Promise<Device[]> {
+  list(): Promise<DeviceType[]> {
     return UsbSerialportForAndroid.list();
   },
 
@@ -103,8 +103,6 @@ const defaultManager: Manager = {
       options.stopBits,
       options.parity
     );
-    console.log('Port opened successfully');
-    console.log('Device ID:', result);
     return new UsbSerial(deviceId, eventEmitter, result);
   },
 };
